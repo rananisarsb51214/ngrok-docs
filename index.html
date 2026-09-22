@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Magic AI v1.0 — Architecture Baseline & Roadmap</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#f5f3ff',
+              100: '#ede9fe',
+              400: '#a78bfa',
+              500: '#8b5cf6',
+              600: '#7c3aed',
+              DEFAULT: '#8b5cf6',
+            },
+            dark: {
+              950: '#07090e',
+              900: '#0c1017',
+              850: '#111722',
+              800: '#172030',
+              700: '#222f46',
+              600: '#33435e',
+            },
+            accent: {
+              cyan: '#06b6d4',
+              emerald: '#10b981',
+              amber: '#f59e0b',
+              rose: '#f43f5e',
+              purple: '#a855f7'
+            }
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'flow': 'flow 20s linear infinite',
+          },
+          keyframes: {
+            flow: {
+              '0%': { backgroundPosition: '0% 50%' },
+              '100%': { backgroundPosition: '100% 50%' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #07090e;
+      color: #e2e8f0;
+      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    }
+    
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0c1017;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #222f46;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #33435e;
+    }
+
+    .glass-card {
+      background: rgba(17, 23, 34, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+    }
+    
+    .glass-card-hover {
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .glass-card-hover:hover {
+      border-color: rgba(139, 92, 246, 0.4);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 30px -10px rgba(139, 92, 246, 0.15);
+    }
+
+    .gradient-border {
+      position: relative;
+      border-radius: 0.75rem;
+      background: linear-gradient(60deg, #8b5cf6, #06b6d4, #10b981);
+      padding: 1px;
+    }
+    .gradient-border-inner {
+      background: #0c1017;
+      border-radius: calc(0.75rem - 1px);
+    }
+
+    .grid-bg {
+      background-size: 32px 32px;
+      background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    }
+
+    .code-block {
+      font-family: 'JetBrains Mono', monospace;
+      background: #090c12;
+    }
+
+    .pipeline-step::after {
+      content: '';
+      position: absolute;
+      right: -16px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 0;
+      height: 0;
+      border-top: 6px solid transparent;
+      border-bottom: 6px solid transparent;
+      border-left: 8px solid #33435e;
+      z-index: 10;
+    }
+    @media (max-width: 1024px) {
+      .pipeline-step::after {
+        display: none;
+      }
+    }
+
+    .tab-active {
+      background: rgba(139, 92, 246, 0.15);
+      border-color: #8b5cf6;
+      color: #fff;
+    }
+  </style>
+</head>
+<body class="min-h-screen grid-bg selection:bg-brand-500 selection:text-white flex flex-col">
+
+  <!-- Top Announcement / Baseline Lock Banner -->
+  <header class="border-b border-dark-700/80 bg-dark-900/90 backdrop-blur-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <!-- Logo & Title -->
+        <div class="flex items-center space-x-3">
+          <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-brand-600 via-accent-purple to-accent-cyan flex items-center justify-center shadow-lg shadow-brand-500/20">
+            <i data-lucide="sparkles" class="w-5 h-5 text-white"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="font-extrabold tracking-tight text-white text-lg">Magic AI</span>
+              <span class="px-2 py-0.5 text-xs font-mono font-semibold bg-brand-500/20 text-brand-400 border border-brand-500/30 rounded">v1.0 Baseline</span>
+              <span class="flex items-center space-x-1 px-2 py-0.5 text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>LOCKED</span>
+              </span>
+            </div>
+            <p class="text-xs text-slate-400 hidden sm:block">Architecture Baseline & Execution Roadmap (Phases 0–12)</p>
+          </div>
+        </div>
+
+        <!-- Quick Info & Action Controls -->
+        <div class="flex items-center space-x-3">
+          <div class="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-dark-850 border border-dark-700 text-xs">
+            <span class="text-slate-400">Current Milestone:</span>
+            <span class="font-semibold text-accent-cyan flex items-center gap-1">
+              <i data-lucide="flag" class="w-3.5 h-3.5"></i> Phase 0 → Phase 3
+            </span>
+          </div>
+          <button onclick="downloadBaselineDoc()" class="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium bg-dark-800 hover:bg-dark-700 border border-dark-600 rounded-lg text-slate-200 transition">
+            <i data-lucide="file-json" class="w-3.5 h-3.5 text-brand-400"></i>
+            <span>Export Spec</span>
+          </button>
+          <button onclick="toggleVerificationModal()" class="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium bg-brand-600 hover:bg-brand-500 text-white rounded-lg shadow-md shadow-brand-600/30 transition">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+            <span>Verify Baseline</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs Sub-header -->
+  <nav class="border-b border-dark-700/60 bg-dark-900/60 backdrop-blur sticky top-16 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center space-x-1 sm:space-x-2 py-2 overflow-x-auto no-scrollbar">
+        <button onclick="switchTab('overview')" id="tab-overview" class="tab-btn tab-active px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium border border-transparent transition flex items-center gap-2 whitespace-nowrap">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Overview & Strategy
+        </button>
+        <button onclick="switchTab('milestone1')" id="tab-milestone1" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium text-slate-400 hover:text-white border border-transparent transition flex items-center gap-2 whitespace-nowrap">
+          <span class="w-2 h-2 rounded-full bg-accent-cyan"></span> Milestone 1 (P0 → P3)
+        </button>
+        <button onclick="switchTab('phases')" id="tab-phases" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium text-slate-400 hover:text-white border border-transparent transition flex items-center gap-2 whitespace-nowrap">
+          <i data-lucide="layers" class="w-4 h-4"></i> All 13 Phases (0-12)
+        </button>
+        <button onclick="switchTab('security')" id="tab-security" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium text-slate-400 hover:text-white border border-transparent transition flex items-center gap-2 whitespace-nowrap">
+          <i data-lucide="shield-alert" class="w-4 h-4"></i> 9-Stage Security Flow
+        </button>
+        <button onclick="switchTab('gateway')" id="tab-gateway" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium text-slate-400 hover:text-white border border-transparent transition flex items-center gap-2 whitespace-nowrap">
+          <i data-lucide="cpu" class="w-4 h-4"></i> AI Gateway & Decoupled MCP
+        </button>
+        <button onclick="switchTab('dod')" id="tab-dod" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium text-slate-400 hover:text-white border border-transparent transition flex items-center gap-2 whitespace-nowrap">
+          <i data-lucide="check-circle-2" class="w-4 h-4"></i> Definition of Done (DoD)
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content Area -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- ========================================================================= -->
+    <!-- SECTION 1: OVERVIEW & ARCHITECTURAL SUMMARY -->
+    <!-- ========================================================================= -->
+    <section id="view-overview" class="space-y-8">
+      
+      <!-- Top Hero Architecture Banner -->
+      <div class="gradient-border shadow-2xl shadow-brand-500/5">
+        <div class="gradient-border-inner p-6 sm:p-8">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div class="space-y-3 max-w-3xl">
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-xs font-mono">
+                <i data-lucide="lock" class="w-3.5 h-3.5"></i> BASELINE SPECIFICATION V1.0
+              </div>
+              <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight leading-tight">
+                Magic AI Enterprise Architecture & Execution Framework
+              </h1>
+              <p class="text-slate-300 text-sm sm:text-base leading-relaxed">
+                Deterministic 13-phase implementation plan with strict multi-tenant isolation, 9-stage security verification pipeline, intelligent policy-driven multi-model AI routing, and an architecturally decoupled MCP boundary.
+              </p>
+            </div>
+            
+            <!-- Quick Architecture Metrics Widget -->
+            <div class="grid grid-cols-2 sm:grid-cols-2 gap-3 min-w-[280px]">
+              <div class="bg-dark-850/80 border border-dark-700 p-3.5 rounded-xl">
+                <span class="text-xs text-slate-400 block font-mono">Total Phases</span>
+                <span class="text-2xl font-bold text-white tracking-tight">13 <span class="text-xs font-normal text-slate-500">(0 to 12)</span></span>
+                <span class="text-[10px] text-emerald-400 block mt-0.5">Full End-to-End Cycle</span>
+              </div>
+              <div class="bg-dark-850/80 border border-dark-700 p-3.5 rounded-xl">
+                <span class="text-xs text-slate-400 block font-mono">Current Focus</span>
+                <span class="text-2xl font-bold text-accent-cyan tracking-tight">P0 → P3</span>
+                <span class="text-[10px] text-accent-cyan/80 block mt-0.5">Milestone 1 Foundation</span>
+              </div>
+              <div class="bg-dark-850/80 border border-dark-700 p-3.5 rounded-xl">
+                <span class="text-xs text-slate-400 block font-mono">Security Layers</span>
+                <span class="text-2xl font-bold text-brand-400 tracking-tight">9 Stages</span>
+                <span class="text-[10px] text-brand-300/80 block mt-0.5">Zero-Trust Pipeline</span>
+              </div>
+              <div class="bg-dark-850/80 border border-dark-700 p-3.5 rounded-xl">
+                <span class="text-xs text-slate-400 block font-mono">Isolation Model</span>
+                <span class="text-2xl font-bold text-accent-emerald tracking-tight">Strict Org</span>
+                <span class="text-[10px] text-emerald-300/80 block mt-0.5">Multi-Tenant + RBAC</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Core Architectural Pillars -->
+      <div>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <i data-lucide="component" class="w-5 h-5 text-brand-400"></i>
+            Architectural Tenets & Key Decisions
+          </h2>
+          <span class="text-xs text-slate-400 font-mono">4 Core Enforcements</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Pillar 1 -->
+          <div class="glass-card glass-card-hover p-5 rounded-xl border border-dark-700 space-y-3">
+            <div class="w-10 h-10 rounded-lg bg-accent-cyan/10 border border-accent-cyan/20 flex items-center justify-center text-accent-cyan">
+              <i data-lucide="split" class="w-5 h-5"></i>
+            </div>
+            <h3 class="font-bold text-white text-sm">MCP Isolation Refinement</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              MCP Read-only server is kept completely separate from the internal AI gateway to prevent it from becoming the security boundary for the entire app.
+            </p>
+            <div class="pt-2 border-t border-dark-700/60 flex items-center text-[11px] font-mono text-accent-cyan">
+              <span>Decoupled Perimeter</span>
+              <i data-lucide="arrow-right" class="w-3 h-3 ml-auto"></i>
+            </div>
+          </div>
+
+          <!-- Pillar 2 -->
+          <div class="glass-card glass-card-hover p-5 rounded-xl border border-dark-700 space-y-3">
+            <div class="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+              <i data-lucide="shield-check" class="w-5 h-5"></i>
+            </div>
+            <h3 class="font-bold text-white text-sm">Milestone 1 First Stride</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Execution strictly starts with Phases 0–3 (Repo, Next.js, Firebase Auth, Org Multi-tenancy, RBAC, Firestore security rules, & automated testing).
+            </p>
+            <div class="pt-2 border-t border-dark-700/60 flex items-center text-[11px] font-mono text-emerald-400">
+              <span>Security-First Foundation</span>
+              <i data-lucide="arrow-right" class="w-3 h-3 ml-auto"></i>
+            </div>
+          </div>
+
+          <!-- Pillar 3 -->
+          <div class="glass-card glass-card-hover p-5 rounded-xl border border-dark-700 space-y-3">
+            <div class="w-10 h-10 rounded-lg bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-400">
+              <i data-lucide="network" class="w-5 h-5"></i>
+            </div>
+            <h3 class="font-bold text-white text-sm">AI Gateway & Router</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Dynamic policy-driven abstraction layer across OpenAI, Anthropic, Gemini, and future providers with cost, latency, and capability routing.
+            </p>
+            <div class="pt-2 border-t border-dark-700/60 flex items-center text-[11px] font-mono text-brand-400">
+              <span>Policy Driven Abstraction</span>
+              <i data-lucide="arrow-right" class="w-3 h-3 ml-auto"></i>
+            </div>
+          </div>
+
+          <!-- Pillar 4 -->
+          <div class="glass-card glass-card-hover p-5 rounded-xl border border-dark-700 space-y-3">
+            <div class="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+              <i data-lucide="history" class="w-5 h-5"></i>
+            </div>
+            <h3 class="font-bold text-white text-sm">Backward Compatible Rollback</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Zero-downtime releases enforced by backward-compatible schema changes, immutable version tagging, and deterministic rollback playbooks.
+            </p>
+            <div class="pt-2 border-t border-dark-700/60 flex items-center text-[11px] font-mono text-amber-400">
+              <span>Non-Destructive Migrations</span>
+              <i data-lucide="arrow-right" class="w-3 h-3 ml-auto"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- High-Level Flow Diagram (Interactive Canvas-like Grid) -->
+      <div class="glass-card p-6 rounded-xl border border-dark-700">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-dark-700">
+          <div>
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <i data-lucide="git-branch" class="w-4 h-4 text-brand-400"></i>
+              System Interaction Topology & Decoupling Map
+            </h3>
+            <p class="text-xs text-slate-400">Visual representation of client requests, authentication, gateway routing, and isolated MCP</p>
+          </div>
+          <span class="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded border border-emerald-500/20">
+            Enforced Boundary
+          </span>
+        </div>
+
+        <!-- Interactive Diagram Layout -->
+        <div class="pt-6 grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
+          
+          <!-- Client Zone -->
+          <div class="lg:col-span-3 space-y-3">
+            <div class="p-3.5 rounded-lg bg-dark-900 border border-dark-600 text-center relative">
+              <div class="absolute -top-2 left-3 px-2 py-0.5 bg-dark-700 text-[10px] font-mono rounded text-slate-300">Client Layer</div>
+              <i data-lucide="smartphone" class="w-6 h-6 text-brand-400 mx-auto my-1"></i>
+              <div class="font-semibold text-xs text-white">Next.js Web App (Phase 1)</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Responsive UI • Streaming Chat • Project Hub</div>
+            </div>
+
+            <div class="p-3.5 rounded-lg bg-dark-900 border border-dark-600 text-center">
+              <i data-lucide="key-round" class="w-6 h-6 text-accent-cyan mx-auto my-1"></i>
+              <div class="font-semibold text-xs text-white">Firebase Auth (Phase 2)</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">ID Token Issuance • Multi-Tenant Claims</div>
+            </div>
+          </div>
+
+          <!-- Middle Connection Indicator -->
+          <div class="lg:col-span-1 flex lg:flex-col justify-center items-center text-slate-500">
+            <i data-lucide="arrow-right" class="w-5 h-5 hidden lg:block"></i>
+            <i data-lucide="arrow-down" class="w-5 h-5 lg:hidden"></i>
+          </div>
+
+          <!-- Core Security & Router Boundary -->
+          <div class="lg:col-span-4 p-4 rounded-xl bg-dark-900/90 border-2 border-brand-500/40 relative shadow-lg shadow-brand-500/10 space-y-3">
+            <div class="absolute -top-2.5 right-3 px-2 py-0.5 bg-brand-600 text-[10px] font-mono text-white rounded shadow">
+              Core Security Boundary
+            </div>
+            <div class="text-xs font-mono font-bold text-white flex items-center gap-1.5">
+              <i data-lucide="shield-check" class="w-4 h-4 text-brand-400"></i> Backend & AI Gateway
+            </div>
+            
+            <div class="space-y-2 text-xs">
+              <div class="p-2 rounded bg-dark-850 border border-dark-700 flex items-center justify-between">
+                <span class="text-slate-300 font-mono text-[11px]">ID Token & RBAC Verify</span>
+                <span class="text-[10px] px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 rounded font-mono">Phase 2</span>
+              </div>
+              <div class="p-2 rounded bg-dark-850 border border-dark-700 flex items-center justify-between">
+                <span class="text-slate-300 font-mono text-[11px]">Zod Validation & Rate Limit</span>
+                <span class="text-[10px] px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 rounded font-mono">Backend</span>
+              </div>
+              <div class="p-2 rounded bg-dark-850 border border-dark-700 flex items-center justify-between">
+                <span class="text-slate-300 font-mono text-[11px]">Firestore Repo (Tenant Scope)</span>
+                <span class="text-[10px] px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 rounded font-mono">Phase 3</span>
+              </div>
+              <div class="p-2 rounded bg-brand-950/60 border border-brand-500/30 flex items-center justify-between">
+                <span class="text-brand-200 font-mono text-[11px]">AI Policy Router (Failover/Cost)</span>
+                <span class="text-[10px] px-1.5 py-0.5 bg-brand-500/30 text-brand-300 rounded font-mono">Phase 4</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Decoupled Paths: Provider vs MCP -->
+          <div class="lg:col-span-1 flex lg:flex-col justify-center items-center text-slate-500">
+            <i data-lucide="split" class="w-5 h-5 hidden lg:block rotate-90"></i>
+            <i data-lucide="arrow-down" class="w-5 h-5 lg:hidden"></i>
+          </div>
+
+          <!-- External Providers & Isolated MCP -->
+          <div class="lg:col-span-3 space-y-3">
+            <!-- AI Providers -->
+            <div class="p-3 rounded-lg bg-dark-900 border border-dark-600 space-y-1.5">
+              <div class="text-xs font-semibold text-white flex items-center justify-between">
+                <span>AI Providers</span>
+                <span class="text-[10px] font-mono text-slate-400">OpenAI / Anthropic / Gemini</span>
+              </div>
+              <div class="flex gap-1.5 pt-1">
+                <span class="px-2 py-0.5 bg-dark-800 text-[10px] font-mono rounded text-slate-300 border border-dark-700">GPT-4o</span>
+                <span class="px-2 py-0.5 bg-dark-800 text-[10px] font-mono rounded text-slate-300 border border-dark-700">Claude 3.5</span>
+                <span class="px-2 py-0.5 bg-dark-800 text-[10px] font-mono rounded text-slate-300 border border-dark-700">Gemini 1.5</span>
+              </div>
+            </div>
+
+            <!-- MCP Box (Separated) -->
+            <div class="p-3 rounded-lg bg-dark-900 border-2 border-accent-amber/50 space-y-1 relative">
+              <div class="flex items-center justify-between">
+                <div class="text-xs font-bold text-amber-400 flex items-center gap-1">
+                  <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i> MCP Server (Phase 7)
+                </div>
+                <span class="text-[9px] font-mono px-1.5 py-0.5 bg-amber-500/20 text-amber-300 rounded">Read-Only</span>
+              </div>
+              <p class="text-[10px] text-slate-400 leading-tight">
+                Strictly outside AI gateway perimeter to prevent security boundary collapse.
+              </p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SECTION 2: MILESTONE 1 (PHASES 0 TO 3) DEEP DIVE -->
+    <!-- ========================================================================= -->
+    <section id="view-milestone1" class="hidden space-y-6">
+      
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-xl bg-dark-850 border border-accent-cyan/30">
+        <div>
+          <div class="inline-flex items-center gap-1.5 text-xs font-mono text-accent-cyan mb-1">
+            <span class="w-2 h-2 rounded-full bg-accent-cyan animate-ping"></span>
+            PRIMARY EXECUTION OBJECTIVE
+          </div>
+          <h2 class="text-xl font-bold text-white">Milestone 1: Foundational Core (Phase 0 → Phase 3)</h2>
+          <p class="text-xs sm:text-sm text-slate-300 mt-1">
+            Establishing the absolute secure multi-tenant perimeter before attaching external AI providers or MCP interfaces.
+          </p>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="text-right">
+            <span class="text-[11px] text-slate-400 font-mono block">Milestone Status</span>
+            <span class="text-xs font-bold text-accent-emerald bg-accent-emerald/10 border border-accent-emerald/30 px-2 py-0.5 rounded inline-block">Ready For Execution</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 Core Deliverables of Milestone 1 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        <!-- P0: Repository + Architecture -->
+        <div class="glass-card p-5 rounded-xl border border-dark-700 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-mono font-bold text-brand-400 bg-brand-500/10 px-2.5 py-1 rounded border border-brand-500/20">PHASE 0</span>
+            <span class="text-xs text-slate-400 font-mono">Infra / Setup</span>
+          </div>
+          <h3 class="text-base font-bold text-white">Repository & Architecture Foundation</h3>
+          <ul class="space-y-2 text-xs text-slate-300">
+            <li class="flex items-start gap-2">
+              <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0"></i>
+              <span>Monorepo/Modular Repo structure with strict TypeScript configurations and path aliases.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0"></i>
+              <span>CI/CD workflow scaffolding with pre-commit hooks, ESLint, Prettier, and branch protection.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0"></i>
+              <span>Environment configuration validation using Zod schemas at build and runtime.</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- P1: Next.js Web App Foundation -->
+        <div class="glass-card p-5 rounded-xl border border-dark-700 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-mono font-bold text-accent-cyan bg-accent-cyan/10 px-2.5 py-1 rounded border border-accent-cyan/20">PHASE 1</span>
+            <span class="text-xs text-slate-400 font-mono">Frontend Core</span>
+          </div>
+          <h3 class="text-base font-bold text-white">Next.js Web App Foundation</h3>
+          <ul class="space-y-2 text-xs text-slate-300">
+            <li class="flex items-start gap-2">
+              <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0"></i>
+              <span>Next.js App Router setup with responsive modern shell, dynamic theme engine, and error boundaries.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0"></i>
+              <span>Stateful UI primitive library (Dashboard, Chat Shell, Project explorer, Settings).</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0"></i>
+              <span>Deterministic loading skeletons, graceful error toasts, and empty state handlers across views.</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- P2: Firebase Auth & Multi-tenancy -->
+        <div class="glass-card p-5 rounded-xl border border-dark-700 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-mono font-bold text-brand-400 bg-brand-500/10 px-2.5 py-1 rounded border border-brand-500/20">PHASE 2</span>
+            <span class="text-xs text-slate-400 font-mono">Identity & Tenant</span>
+          </div>
+          <h3 class="text-base font-bold text-white">Firebase Auth & Multi-Tenancy</h3>
+          <ul class="space-y-2 text-xs text-slate-300">
+            <li class="flex items-start gap-2">
+              <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0"></i>
+              <span>Firebase Auth integration (Email/Password, OAuth, SSO ready) with session cookie persistence.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0"></i>
+              <span>Multi-tenant Organization data model with Org creation, invitations, and active context switching.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0"></i>
+              <span>RBAC Engine enforcing roles: <code class="text-brand-300 font-mono">owner</code>, <code class="text-brand-300 font-mono">admin</code>, <code class="text-brand-300 font-mono">member</code>, <code class="text-brand-300 font-mono">viewer</code>.</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- P3: Firestore Repositories & Security Rules -->
+        <div class="glass-card p-5 rounded-xl border border-dark-700 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-mono font-bold text-accent-emerald bg-accent-emerald/10 px-2.5 py-1 rounded border border-accent-emerald/20">PHASE 3</span>
+            <span class="text-xs text-slate-400 font-mono">Data & Security Tests</span>
+          </div>
+          <h3 class="text-base font-bold text-white">Firestore Repos & Security Rules</h3>
+          <ul class="space-y-2 text-xs text-slate-300">
+            <li class="flex items-start gap-2">
+              <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0"></i>
+              <span>Tenant-isolated Firestore repository pattern: <code class="text-slate-200 font-mono">/orgs/{orgId}/projects/...</code></span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0"></i>
+              <span>Declarative Firestore Security Rules validating org membership and role hierarchies directly at database tier.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0"></i>
+              <span>Automated Firebase Security Rules test suite with <code class="text-emerald-300 font-mono">@firebase/rules-unit-testing</code> in CI.</span>
+            </li>
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- Code Showcase / Rules verification snippet -->
+      <div class="glass-card rounded-xl border border-dark-700 overflow-hidden">
+        <div class="px-4 py-2.5 bg-dark-900 border-b border-dark-700 flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <div class="flex space-x-1">
+              <div class="w-2.5 h-2.5 rounded-full bg-red-500/80"></div>
+              <div class="w-2.5 h-2.5 rounded-full bg-yellow-500/80"></div>
+              <div class="w-2.5 h-2.5 rounded-full bg-green-500/80"></div>
+            </div>
+            <span class="text-xs font-mono text-slate-300 ml-2">firestore.rules (Phase 3 Enforced Multi-Tenant RBAC)</span>
+          </div>
+          <span class="text-[11px] font-mono text-brand-400 bg-brand-500/10 px-2 py-0.5 rounded">Security Enforced</span>
+        </div>
+        <pre class="code-block p-4 text-xs text-slate-300 overflow-x-auto"><code>rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Multi-tenant Org membership helper
+    function isOrgMember(orgId) {
+      return request.auth != null && 
+        exists(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid));
+    }
+
+    function getOrgRole(orgId) {
+      return get(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)).data.role;
+    }
+
+    match /orgs/{orgId} {
+      allow read: if isOrgMember(orgId);
+      allow write: if isOrgMember(orgId) && getOrgRole(orgId) in ['owner', 'admin'];
+
+      // Isolated Project subcollection
+      match /projects/{projectId} {
+        allow read: if isOrgMember(orgId);
+        allow write: if isOrgMember(orgId) && getOrgRole(orgId) in ['owner', 'admin', 'member'];
+      }
+
+      // Usage Ledgers & Audit Logs (Append-only or Admin read)
+      match /auditLogs/{logId} {
+        allow read: if isOrgMember(orgId) && getOrgRole(orgId) in ['owner', 'admin'];
+        allow write: if false; // Server-side writes only via Admin SDK
+      }
+    }
+  }
+}</code></pre>
+      </div>
+
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SECTION 3: ALL 13 PHASES (0 TO 12) -->
+    <!-- ========================================================================= -->
+    <section id="view-phases" class="hidden space-y-6">
+      
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <i data-lucide="list-ordered" class="w-5 h-5 text-brand-400"></i>
+            Execution Roadmap: Phases 0 through 12
+          </h2>
+          <p class="text-xs sm:text-sm text-slate-400">Sequential, deterministic implementation order for Magic AI v1.0</p>
+        </div>
+        
+        <!-- Filter buttons -->
+        <div class="flex items-center space-x-1.5 bg-dark-900 p-1 rounded-lg border border-dark-700">
+          <button onclick="filterPhases('all')" class="phase-filter active text-xs font-mono px-2.5 py-1 rounded bg-brand-600 text-white">All (13)</button>
+          <button onclick="filterPhases('m1')" class="phase-filter text-xs font-mono px-2.5 py-1 rounded text-slate-400 hover:text-white">Milestone 1 (0-3)</button>
+          <button onclick="filterPhases('core')" class="phase-filter text-xs font-mono px-2.5 py-1 rounded text-slate-400 hover:text-white">AI Core (4-7)</button>
+          <button onclick="filterPhases('prod')" class="phase-filter text-xs font-mono px-2.5 py-1 rounded text-slate-400 hover:text-white">Prod (8-12)</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="phases-grid">
+        <!-- Rendered by JS / Initial Static Cards -->
+      </div>
+
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SECTION 4: 9-STAGE SECURITY PIPELINE -->
+    <!-- ========================================================================= -->
+    <section id="view-security" class="hidden space-y-6">
+      
+      <div class="p-5 rounded-xl bg-dark-850 border border-brand-500/30">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div class="text-xs font-mono text-brand-400 uppercase tracking-wider">Zero-Trust Baseline</div>
+            <h2 class="text-xl font-bold text-white">9-Stage Request Validation Pipeline</h2>
+            <p class="text-xs sm:text-sm text-slate-300 mt-1">Every incoming client operation traverses this exact sequential security boundary.</p>
+          </div>
+          <button onclick="runSecuritySimulation()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-mono font-medium flex items-center gap-1.5 transition">
+            <i data-lucide="play" class="w-3.5 h-3.5"></i> Test Pipeline Simulation
+          </button>
+        </div>
+      </div>
+
+      <!-- Interactive 9-Step Flow Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="security-pipeline-steps">
+        
+        <!-- Step 1 -->
+        <div class="pipeline-card p-4 rounded-xl glass-card border border-dark-700 relative" id="sec-step-1">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-dark-800 text-slate-400 border border-dark-600">STAGE 01</span>
+            <i data-lucide="globe" class="w-4 h-4 text-cyan-400"></i>
+          </div>
+          <h4 class="font-bold text-white text-sm">1. Browser</h4>
+          <p class="text-xs text-slate-400 mt-1">Client initiates request over TLS 1.3 with client-side anti-CSRF headers and CSP policy.</p>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="pipeline-card p-4 rounded-xl glass-card border border-dark-700 relative" id="sec-step-2">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-dark-800 text-slate-400 border border-dark-600">STAGE 02</span>
+            <i data-lucide="key" class="w-4 h-4 text-brand-400"></i>
+          </div>
+          <h4 class="font-bold text-white text-sm">2. Firebase Auth</h4>
+          <p class="text-xs text-slate-400 mt-1">User identity validation, multi-factor verification, and session token generation.</p>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="pipeline-card p-4 rounded-xl glass-card border border-dark-700 relative" id="sec-step-3">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-dark-800 text-slate-400 border border-dark-600">STAGE 03</span>
+            <i data-lucide="badge-check" class="w-4 h-4 text-emerald-400"></i>
+          </div>
+          <h4 class="font-bold text-white text-sm">3. ID Token Verification</h4>
+          <p class="text-xs text-slate-400 mt-1">Backend Firebase Admin SDK verifies cryptographic JWT signature, expiration, and issuer.</p>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="pipeline-card p-4 rounded-xl glass-card border border-dark-700 relative" id="sec-step-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-dark-800 text-slate-400 border border-dark-600">STAGE 04</span>
+            <i data-lucide="building-2" class="w-4 h-4 text-amber-400"></i>
+          </div>
+          <h4 class="font-bold text-white text-sm">4. Organization Membership</h4>
+          <p class="text-xs text-slate-400 mt-1">Verifies requesting user is an active member of target <code class="font-mono text-amber-300">orgId</code> partition.</p>
+        </div>
+
+        <!-- Step 5 -->
+        <div class="pipeline-card p-4 rounded-xl glass-card border border-dark-700 relative" id="sec-step-5">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-dark-800 text-slate-400 border border-dark-600">STAGE 05</span>
+            <i data-lucide="lock" class="w-4 h-4 text-rose-400"></i>
+          </div>
+          <h4 class="font-bold text-white text-sm">5. RBAC Enforcement</h4>
+          <p class="text-xs text-slate-400 mt-1">Permission gate checks: owner, admin, member, viewer against requested action verb.</p>
+        </div>
+
+        <!-- Step 6 -->
+        <div class="pipeline-card p-4 rounded-xl glass-card border border-dark-700 relative" id="sec-step-6">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-dark-800 text-slate-400 border border-dark-600">STAGE 06</span>
+            <i data-lucide="file-check-2" class="w-4 h-4 text-purple-400"></i>
+          </div>
+          <h4 class="font-bold text-white text-sm">6. Schema Validation (Zod)</h4>
+          <p class="text-xs text-slate-400 mt-1">Deep payload structure, type coercion, and prompt sanitization using strict Zod schemas.</p>
+        </div>
+
+        <!-- Step 7 -->
+        <div class="pipeline-card p-4 rounded-xl glass-card border border-dark-700 relative" id="sec-step-7">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-dark-800 text-slate-400 border border-dark-600">STAGE 07</span>
+            <i data-lucide="gauge" class="w-4 h-4 text-yellow-400"></i>
+          </div>
+          <h4 class="font-bold text-white text-sm">7. Rate Limit</h4>
+          <p class="text-xs text-slate-400 mt-1">Token bucket and sliding window rate limits checked per org, user, and AI endpoint.</p>
+        </div>
+
+        <!-- Step 8 -->
+        <div class="pipeline-card p-4 rounded-xl glass-card border border-dark-700 relative" id="sec-step-8">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-dark-800 text-slate-400 border border-dark-600">STAGE 08</span>
+            <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
+          </div>
+          <h4 class="font-bold text-white text-sm">8. Authorized Operation</h4>
+          <p class="text-xs text-slate-400 mt-1">Atomic operation allowed: database mutation, ledger reservation, and audit record emit.</p>
+        </div>
+
+        <!-- Step 9 -->
+        <div class="pipeline-card p-4 rounded-xl glass-card border border-dark-700 relative" id="sec-step-9">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-dark-800 text-slate-400 border border-dark-600">STAGE 09</span>
+            <i data-lucide="cpu" class="w-4 h-4 text-accent-cyan"></i>
+          </div>
+          <h4 class="font-bold text-white text-sm">9. Provider / MCP Egress</h4>
+          <p class="text-xs text-slate-400 mt-1">Dispatched to AI Provider Router (OpenAI/Anthropic/Gemini) or decoupled Read-Only MCP server.</p>
+        </div>
+
+      </div>
+
+      <!-- Simulation Output Terminal -->
+      <div id="sim-terminal" class="glass-card rounded-xl border border-dark-700 p-4 font-mono text-xs hidden">
+        <div class="flex items-center justify-between pb-2 border-b border-dark-700 text-slate-400 mb-3">
+          <span class="flex items-center gap-1.5"><i data-lucide="terminal" class="w-3.5 h-3.5"></i> Live Security Pipeline Verification Trace</span>
+          <span id="sim-status" class="text-emerald-400 font-bold">READY</span>
+        </div>
+        <div id="sim-logs" class="space-y-1 text-slate-300 max-h-48 overflow-y-auto"></div>
+      </div>
+
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SECTION 5: AI GATEWAY & DECOUPLED MCP -->
+    <!-- ========================================================================= -->
+    <section id="view-gateway" class="hidden space-y-6">
+      
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- AI Gateway Box -->
+        <div class="glass-card p-6 rounded-xl border border-dark-700 space-y-4">
+          <div class="flex items-center justify-between">
+            <div class="w-10 h-10 rounded-lg bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-400">
+              <i data-lucide="network" class="w-5 h-5"></i>
+            </div>
+            <span class="px-2.5 py-1 text-xs font-mono bg-brand-500/20 text-brand-300 rounded border border-brand-500/30">Phase 4 Gateway</span>
+          </div>
+
+          <h3 class="text-lg font-bold text-white">Policy-Driven AI Gateway Router</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Standardizes all LLM traffic through a unified interface. Automatically routes prompts based on configurable tenant policies (latency budget, cost ceilings, context window size, or vendor failover).
+          </p>
+
+          <!-- Router Policy Live Simulator -->
+          <div class="bg-dark-900 p-4 rounded-lg border border-dark-700 space-y-3">
+            <div class="text-xs font-mono text-slate-400">Interactive Gateway Policy Selector:</div>
+            <div class="grid grid-cols-3 gap-2">
+              <button onclick="setRoutingPolicy('quality')" id="btn-pol-quality" class="policy-btn text-xs font-mono py-1.5 px-2 rounded bg-brand-600 text-white border border-brand-500">Max Quality</button>
+              <button onclick="setRoutingPolicy('latency')" id="btn-pol-latency" class="policy-btn text-xs font-mono py-1.5 px-2 rounded bg-dark-800 text-slate-300 border border-dark-700">Lowest Latency</button>
+              <button onclick="setRoutingPolicy('cost')" id="btn-pol-cost" class="policy-btn text-xs font-mono py-1.5 px-2 rounded bg-dark-800 text-slate-300 border border-dark-700">Cost Saver</button>
+            </div>
+            
+            <div id="policy-display" class="p-3 bg-dark-950 rounded border border-dark-800 text-xs font-mono space-y-1">
+              <div class="text-brand-300">Policy: <span id="pol-name" class="font-bold">MAX_QUALITY</span></div>
+              <div class="text-slate-400">Primary Provider: <span id="pol-primary" class="text-white">Anthropic (Claude 3.5 Sonnet)</span></div>
+              <div class="text-slate-400">Failover 1: <span id="pol-fail1" class="text-slate-300">OpenAI (GPT-4o)</span></div>
+              <div class="text-slate-400">Failover 2: <span id="pol-fail2" class="text-slate-300">Gemini (Gemini 1.5 Pro)</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MCP Isolation Box -->
+        <div class="glass-card p-6 rounded-xl border border-amber-500/30 space-y-4">
+          <div class="flex items-center justify-between">
+            <div class="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+              <i data-lucide="shield-alert" class="w-5 h-5"></i>
+            </div>
+            <span class="px-2.5 py-1 text-xs font-mono bg-amber-500/20 text-amber-300 rounded border border-amber-500/30">Phase 7 Isolation Refinement</span>
+          </div>
+
+          <h3 class="text-lg font-bold text-white">Decoupled MCP Architecture Boundary</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            <strong class="text-amber-300">Critical Architecture Decision:</strong> The Model Context Protocol (MCP) server is strictly decoupled and read-only. It is deliberately <span class="underline underline-offset-2">not</span> placed inside or acting as the security perimeter of the core app.
+          </p>
+
+          <div class="bg-dark-900 p-4 rounded-lg border border-dark-700 space-y-2.5">
+            <div class="text-xs font-bold text-white flex items-center gap-1.5">
+              <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-400"></i> Why Decoupling is Enforced:
+            </div>
+            <ul class="text-xs text-slate-300 space-y-2 list-disc list-inside">
+              <li><span class="text-slate-200 font-semibold">Prevents Perimeter Collapse:</span> If an MCP server is compromised or injected, internal DB & auth boundaries remain intact.</li>
+              <li><span class="text-slate-200 font-semibold">Read-Only Scoping:</span> Exposes curated, safe tool schemas without executing arbitrary state mutations.</li>
+              <li><span class="text-slate-200 font-semibold">Independent Auditing:</span> Separate telemetry stream for tool invocations and contextual reads.</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Secrets Management & Zero Downtime Rollback Card -->
+      <div class="glass-card p-6 rounded-xl border border-dark-700 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-dark-700 pb-3">
+          <div>
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <i data-lucide="lock" class="w-4 h-4 text-accent-cyan"></i>
+              Secrets Management & Zero-Downtime Rollback Strategy
+            </h3>
+            <p class="text-xs text-slate-400">Phase 11 & Phase 12 deployment safeguards</p>
+          </div>
+          <span class="text-xs font-mono text-slate-300 bg-dark-800 px-2.5 py-1 rounded border border-dark-700">
+            Phase 11 / 12 Standard
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <div class="p-4 rounded-lg bg-dark-900 border border-dark-700 space-y-2">
+            <div class="font-bold text-white flex items-center gap-1.5">
+              <i data-lucide="key" class="w-4 h-4 text-accent-cyan"></i> Secret Rotation
+            </div>
+            <p class="text-slate-400 leading-relaxed">
+              Firebase credentials, Provider API keys, and JWT secrets stored in Secret Manager with runtime validation via Zod; zero client exposure.
+            </p>
+          </div>
+
+          <div class="p-4 rounded-lg bg-dark-900 border border-dark-700 space-y-2">
+            <div class="font-bold text-white flex items-center gap-1.5">
+              <i data-lucide="database" class="w-4 h-4 text-emerald-400"></i> Backward-Compatible DB
+            </div>
+            <p class="text-slate-400 leading-relaxed">
+              Every database migration is additive and backward-compatible (expand-contract pattern) so previous application versions can run seamlessly.
+            </p>
+          </div>
+
+          <div class="p-4 rounded-lg bg-dark-900 border border-dark-700 space-y-2">
+            <div class="font-bold text-white flex items-center gap-1.5">
+              <i data-lucide="rotate-ccw" class="w-4 h-4 text-brand-400"></i> Instant Rollback Playbook
+            </div>
+            <p class="text-slate-400 leading-relaxed">
+              Immutable Docker tags & Vercel deployment aliases allow sub-60-second atomic rollbacks without data corruption or schema collisions.
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SECTION 6: DEFINITION OF DONE (DOD) -->
+    <!-- ========================================================================= -->
+    <section id="view-dod" class="hidden space-y-6">
+      
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-5 rounded-xl bg-dark-850 border border-dark-700">
+        <div>
+          <div class="text-xs font-mono text-brand-400 uppercase tracking-wider">Acceptance Standards</div>
+          <h2 class="text-xl font-bold text-white">v1.0 Definition of Done (DoD) Matrix</h2>
+          <p class="text-xs sm:text-sm text-slate-300 mt-1">Mandatory requirements verified prior to locking release tags.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-mono text-slate-400">Total Checks:</span>
+          <span class="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded">19 / 19 Items</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Frontend DoD -->
+        <div class="glass-card p-5 rounded-xl border border-dark-700 space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-dark-700">
+            <div class="flex items-center space-x-2">
+              <i data-lucide="layout" class="w-5 h-5 text-accent-cyan"></i>
+              <h3 class="font-bold text-white text-base">Frontend Definition of Done</h3>
+            </div>
+            <span class="text-xs font-mono text-accent-cyan bg-accent-cyan/10 px-2 py-0.5 rounded border border-accent-cyan/20">9 Criteria</span>
+          </div>
+
+          <div class="space-y-2.5 text-xs" id="dod-frontend-list">
+            <!-- Items injected by JS -->
+          </div>
+        </div>
+
+        <!-- Backend DoD -->
+        <div class="glass-card p-5 rounded-xl border border-dark-700 space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-dark-700">
+            <div class="flex items-center space-x-2">
+              <i data-lucide="server" class="w-5 h-5 text-brand-400"></i>
+              <h3 class="font-bold text-white text-base">Backend Definition of Done</h3>
+            </div>
+            <span class="text-xs font-mono text-brand-400 bg-brand-500/10 px-2 py-0.5 rounded border border-brand-500/20">10 Criteria</span>
+          </div>
+
+          <div class="space-y-2.5 text-xs" id="dod-backend-list">
+            <!-- Items injected by JS -->
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Verification Modal -->
+  <div id="verifyModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-dark-900 border border-dark-700 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl relative">
+      <button onclick="toggleVerificationModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+          <i data-lucide="shield-check" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-white">Baseline Verification Signature</h3>
+          <p class="text-xs text-slate-400">Magic AI Architecture v1.0 Lock Hash</p>
+        </div>
+      </div>
+
+      <div class="p-3.5 bg-dark-950 rounded-xl border border-dark-800 font-mono text-xs space-y-2">
+        <div class="text-slate-400">SPEC_HASH: <span class="text-emerald-400">0x8F92A1...M1_LOCKED</span></div>
+        <div class="text-slate-400">MILESTONE_1: <span class="text-accent-cyan">Phases 0 to 3 [READY]</span></div>
+        <div class="text-slate-400">MCP_STATUS: <span class="text-amber-400">DECOUPLED_READONLY</span></div>
+        <div class="text-slate-400">SECURITY_GATES: <span class="text-brand-300">9_STAGES_ACTIVE</span></div>
+      </div>
+
+      <div class="text-xs text-slate-300 leading-relaxed">
+        This document represents the immutable implementation contract for Magic AI v1.0. All downstream PRs and microservice deployments must satisfy these constraints.
+      </div>
+
+      <div class="pt-2 flex justify-end">
+        <button onclick="toggleVerificationModal()" class="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-xs font-semibold">
+          Acknowledge & Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="border-t border-dark-800 bg-dark-950/80 py-6 mt-auto">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500 font-mono">
+      <div class="flex items-center space-x-2">
+        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        <span>Magic AI v1.0 Architecture Baseline Locked</span>
+      </div>
+      <div>
+        <span>Milestone 1 Priority: Phase 0 → Phase 3 Foundation</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Core JavaScript Logic -->
+  <script>
+    // 13 Full Phases Definition
+    const phasesData = [
+      {
+        id: 0,
+        phase: "PHASE 0",
+        name: "Repository + Architecture",
+        tag: "Milestone 1",
+        group: "m1",
+        color: "cyan",
+        icon: "git-fork",
+        desc: "Monorepo structuring, TypeScript setup, ESLint/Prettier, environment validation with Zod, and CI/CD baseline."
+      },
+      {
+        id: 1,
+        phase: "PHASE 1",
+        name: "Next.js Web App",
+        tag: "Milestone 1",
+        group: "m1",
+        color: "cyan",
+        icon: "layout",
+        desc: "App Router foundation, responsive dark-mode shell, dashboard, chat layout, loading skeletons, and state managers."
+      },
+      {
+        id: 2,
+        phase: "PHASE 2",
+        name: "Firebase Auth + Multi-tenancy",
+        tag: "Milestone 1",
+        group: "m1",
+        color: "cyan",
+        icon: "users",
+        desc: "Firebase Authentication, Organization data model, multi-tenant context switching, session cookies, and RBAC roles."
+      },
+      {
+        id: 3,
+        phase: "PHASE 3",
+        name: "Firestore + Security Rules",
+        tag: "Milestone 1",
+        group: "m1",
+        color: "cyan",
+        icon: "database",
+        desc: "Tenant-isolated Firestore repository layer, strict declarative Security Rules, and automated rules unit tests."
+      },
+      {
+        id: 4,
+        phase: "PHASE 4",
+        name: "AI Provider Router",
+        tag: "AI Core",
+        group: "core",
+        color: "brand",
+        icon: "cpu",
+        desc: "Unified AI Gateway with OpenAI, Anthropic, Gemini, policy-driven model selection, latency failover, and pricing models."
+      },
+      {
+        id: 5,
+        phase: "PHASE 5",
+        name: "Streaming Chat",
+        tag: "AI Core",
+        group: "core",
+        color: "brand",
+        icon: "message-square-code",
+        desc: "Server-Sent Events (SSE) streaming pipeline, token rendering, markdown code syntax highlighting, and conversation trees."
+      },
+      {
+        id: 6,
+        phase: "PHASE 6",
+        name: "Prompt / Skill / Agent Library",
+        tag: "AI Core",
+        group: "core",
+        color: "brand",
+        icon: "library",
+        desc: "Reusable prompt catalog, team-shared skill templates, versioned agent configurations, and parameter schema binders."
+      },
+      {
+        id: 7,
+        phase: "PHASE 7",
+        name: "MCP Read-only Server",
+        tag: "AI Core",
+        group: "core",
+        color: "amber",
+        icon: "shield-alert",
+        desc: "Decoupled Model Context Protocol read-only server. Isolated from the internal AI gateway security perimeter."
+      },
+      {
+        id: 8,
+        phase: "PHASE 8",
+        name: "Usage + Billing Infrastructure",
+        tag: "Operations",
+        group: "prod",
+        color: "purple",
+        icon: "receipt",
+        desc: "Token consumption ledger, org credit quotas, Stripe webhook billing synchronization, and overage throttling."
+      },
+      {
+        id: 9,
+        phase: "PHASE 9",
+        name: "Admin Control Plane",
+        tag: "Operations",
+        group: "prod",
+        color: "purple",
+        icon: "sliders",
+        desc: "Platform administration, tenant overview, global feature flags, rate limit adjustment, and live audit telemetry."
+      },
+      {
+        id: 10,
+        phase: "PHASE 10",
+        name: "Tests + Security Verification",
+        tag: "Production",
+        group: "prod",
+        color: "emerald",
+        icon: "check-circle-2",
+        desc: "End-to-end integration tests, penetration scanning, RBAC leak checks, and automated Firestore rule compliance."
+      },
+      {
+        id: 11,
+        phase: "PHASE 11",
+        name: "Production Deployment",
+        tag: "Production",
+        group: "prod",
+        color: "emerald",
+        icon: "rocket",
+        desc: "Edge CDN distribution, container clustering, Secret Manager injection, and backward-compatible zero-downtime deploy."
+      },
+      {
+        id: 12,
+        phase: "PHASE 12",
+        name: "Documentation + Rollback",
+        tag: "Production",
+        group: "prod",
+        color: "emerald",
+        icon: "book-open",
+        desc: "System architecture handbooks, API references, DR runbooks, and sub-60s deterministic rollback mechanisms."
+      }
+    ];
+
+    // DoD Data
+    const frontendDoD = [
+      { text: "Real Authentication Flow (OAuth / Password / Token Refresh)", tag: "Auth" },
+      { text: "Dashboard Overview with dynamic org switcher & status", tag: "App Shell" },
+      { text: "Streaming Chat interface with Markdown, code blocks & stop action", tag: "Chat" },
+      { text: "Prompt & Skill Library with versioning and tags", tag: "Library" },
+      { text: "Instant Search and multi-facet filtering across assets", tag: "Search" },
+      { text: "Projects workspace manager with scoped resource isolation", tag: "Projects" },
+      { text: "Tenant, Team Member RBAC & Profile Settings pages", tag: "Settings" },
+      { text: "Pixel-perfect responsive mobile & desktop drawer UI", tag: "Mobile" },
+      { text: "Explicit Loading skeletons, graceful Error boundaries & Empty states", tag: "UX States" }
+    ];
+
+    const backendDoD = [
+      { text: "Firebase Auth Token verification & claim extraction", tag: "Auth" },
+      { text: "Firestore schema with strict tenant collection partitioning", tag: "Database" },
+      { text: "Strict multi-tenant boundary checks on every route", tag: "Isolation" },
+      { text: "Granular RBAC enforcement (owner, admin, member, viewer)", tag: "Security" },
+      { text: "Zod input schema validation & prompt sanitization", tag: "Validation" },
+      { text: "Sliding window rate limiting per Org / User / Provider", tag: "Throttling" },
+      { text: "AI Provider Abstraction Layer (OpenAI, Anthropic, Gemini)", tag: "Gateway" },
+      { text: "SSE Token Streaming Engine with abort controller", tag: "Streaming" },
+      { text: "Atomic Usage Ledger & token quota credit tracking", tag: "Billing" },
+      { text: "Immutable Audit logging for sensitive security events", tag: "Audit" }
+    ];
+
+    // Initialize Page
+    document.addEventListener("DOMContentLoaded", () => {
+      lucide.createIcons();
+      renderPhases('all');
+      renderDoD();
+    });
+
+    // Tab Switcher
+    function switchTab(tabId) {
+      const views = ['overview', 'milestone1', 'phases', 'security', 'gateway', 'dod'];
+      views.forEach(v => {
+        const el = document.getElementById(`view-${v}`);
+        const tab = document.getElementById(`tab-${v}`);
+        if (el) el.classList.add('hidden');
+        if (tab) {
+          tab.classList.remove('tab-active', 'text-white');
+          tab.classList.add('text-slate-400');
+        }
+      });
+
+      const targetView = document.getElementById(`view-${tabId}`);
+      const targetTab = document.getElementById(`tab-${tabId}`);
+      if (targetView) targetView.classList.remove('hidden');
+      if (targetTab) {
+        targetTab.classList.add('tab-active', 'text-white');
+        targetTab.classList.remove('text-slate-400');
+      }
+      lucide.createIcons();
+    }
+
+    // Render Phases Cards
+    function renderPhases(filter) {
+      const grid = document.getElementById('phases-grid');
+      grid.innerHTML = '';
+      
+      const filtered = filter === 'all' 
+        ? phasesData 
+        : phasesData.filter(p => p.group === filter);
+
+      filtered.forEach(p => {
+        const card = document.createElement('div');
+        card.className = `glass-card glass-card-hover p-5 rounded-xl border border-dark-700 flex flex-col justify-between space-y-3 relative overflow-hidden ${p.id <= 3 ? 'border-l-4 border-l-accent-cyan' : ''}`;
+        
+        let badgeColor = "bg-brand-500/10 text-brand-400 border-brand-500/20";
+        if (p.color === "cyan") badgeColor = "bg-accent-cyan/10 text-accent-cyan border-accent-cyan/20";
+        if (p.color === "amber") badgeColor = "bg-amber-500/10 text-amber-400 border-amber-500/20";
+        if (p.color === "emerald") badgeColor = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+        if (p.color === "purple") badgeColor = "bg-purple-500/10 text-purple-400 border-purple-500/20";
+
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-mono font-bold px-2.5 py-0.5 rounded border ${badgeColor}">
+                ${p.phase}
+              </span>
+              <span class="text-[10px] font-mono text-slate-400 uppercase">${p.tag}</span>
+            </div>
+            <h3 class="font-bold text-white text-base mt-2">${p.name}</h3>
+            <p class="text-xs text-slate-400 mt-1.5 leading-relaxed">${p.desc}</p>
+          </div>
+          <div class="pt-3 border-t border-dark-700/60 flex items-center justify-between text-xs font-mono text-slate-500">
+            <span>Index: ${String(p.id).padStart(2, '0')}</span>
+            <span class="${p.id <= 3 ? 'text-accent-cyan font-bold' : 'text-slate-400'}">${p.id <= 3 ? '● Priority Milestone 1' : 'Queued'}</span>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+      lucide.createIcons();
+    }
+
+    function filterPhases(group) {
+      document.querySelectorAll('.phase-filter').forEach(btn => {
+        btn.classList.remove('bg-brand-600', 'text-white');
+        btn.classList.add('text-slate-400');
+      });
+      event.target.classList.add('bg-brand-600', 'text-white');
+      event.target.classList.remove('text-slate-400');
+      renderPhases(group);
+    }
+
+    // Render DoD List
+    function renderDoD() {
+      const fList = document.getElementById('dod-frontend-list');
+      const bList = document.getElementById('dod-backend-list');
+      
+      fList.innerHTML = frontendDoD.map(item => `
+        <div class="p-2.5 rounded-lg bg-dark-900 border border-dark-700 flex items-center justify-between">
+          <div class="flex items-center space-x-2.5">
+            <i data-lucide="check-square" class="w-4 h-4 text-accent-cyan shrink-0"></i>
+            <span class="text-slate-200">${item.text}</span>
+          </div>
+          <span class="text-[10px] font-mono px-2 py-0.5 bg-dark-800 text-slate-400 rounded shrink-0">${item.tag}</span>
+        </div>
+      `).join('');
+
+      bList.innerHTML = backendDoD.map(item => `
+        <div class="p-2.5 rounded-lg bg-dark-900 border border-dark-700 flex items-center justify-between">
+          <div class="flex items-center space-x-2.5">
+            <i data-lucide="check-square" class="w-4 h-4 text-emerald-400 shrink-0"></i>
+            <span class="text-slate-200">${item.text}</span>
+          </div>
+          <span class="text-[10px] font-mono px-2 py-0.5 bg-dark-800 text-slate-400 rounded shrink-0">${item.tag}</span>
+        </div>
+      `).join('');
+    }
+
+    // AI Policy Selector
+    const policies = {
+      quality: {
+        name: "MAX_QUALITY",
+        primary: "Anthropic (Claude 3.5 Sonnet)",
+        fail1: "OpenAI (GPT-4o)",
+        fail2: "Gemini (Gemini 1.5 Pro)"
+      },
+      latency: {
+        name: "LOWEST_LATENCY",
+        primary: "OpenAI (GPT-4o-mini)",
+        fail1: "Gemini (Gemini 1.5 Flash)",
+        fail2: "Anthropic (Claude 3.5 Haiku)"
+      },
+      cost: {
+        name: "COST_SAVER",
+        primary: "Gemini (Gemini 1.5 Flash)",
+        fail1: "OpenAI (GPT-4o-mini)",
+        fail2: "Anthropic (Claude 3.5 Haiku)"
+      }
+    };
+
+    function setRoutingPolicy(type) {
+      document.querySelectorAll('.policy-btn').forEach(btn => {
+        btn.classList.remove('bg-brand-600', 'text-white', 'border-brand-500');
+        btn.classList.add('bg-dark-800', 'text-slate-300', 'border-dark-700');
+      });
+      document.getElementById(`btn-pol-${type}`).classList.add('bg-brand-600', 'text-white', 'border-brand-500');
+      
+      const p = policies[type];
+      document.getElementById('pol-name').innerText = p.name;
+      document.getElementById('pol-primary').innerText = p.primary;
+      document.getElementById('pol-fail1').innerText = p.fail1;
+      document.getElementById('pol-fail2').innerText = p.fail2;
+    }
+
+    // Security Pipeline Simulation
+    async function runSecuritySimulation() {
+      const term = document.getElementById('sim-terminal');
+      const logs = document.getElementById('sim-logs');
+      const status = document.getElementById('sim-status');
+      term.classList.remove('hidden');
+      logs.innerHTML = '';
+      status.innerText = "SIMULATING...";
+      status.className = "text-yellow-400 font-bold";
+
+      const stages = [
+        "Stage 1: Browser client dispatched encrypted TLS request with CSP headers.",
+        "Stage 2: Firebase Auth token intercepted from Authorization header.",
+        "Stage 3: Verified cryptographic JWT signature via Firebase Admin SDK.",
+        "Stage 4: Verified tenant membership for orgId 'org_enterprise_99'.",
+        "Stage 5: RBAC Role Check: Role 'admin' granted permission 'ai.chat.stream'.",
+        "Stage 6: Schema valid: Zod verified 2 parameters against MessagePayloadSchema.",
+        "Stage 7: Sliding window rate limit checked: 24/1000 RPM consumed (ALLOWED).",
+        "Stage 8: Authorized operation: Token usage reserved in Firestore ledger.",
+        "Stage 9: Dispatched to AI Gateway Router (Claude 3.5 Sonnet connected)."
+      ];
+
+      for (let i = 0; i < stages.length; i++) {
+        // Highlight active card
+        document.querySelectorAll('.pipeline-card').forEach(c => c.classList.remove('border-emerald-500', 'bg-emerald-950/20'));
+        const activeCard = document.getElementById(`sec-step-${i+1}`);
+        if (activeCard) {
+          activeCard.classList.add('border-emerald-500', 'bg-emerald-950/20');
+        }
+
+        const log = document.createElement('div');
+        log.className = "flex items-center gap-2";
+        log.innerHTML = `<span class="text-emerald-400">✔</span> <span>${stages[i]}</span>`;
+        logs.appendChild(log);
+        logs.scrollTop = logs.scrollHeight;
+        await new Promise(r => setTimeout(r, 220));
+      }
+
+      status.innerText = "VERIFIED 9/9 GATES PASSED";
+      status.className = "text-emerald-400 font-bold";
+    }
+
+    // Verification Modal
+    function toggleVerificationModal() {
+      const modal = document.getElementById('verifyModal');
+      modal.classList.toggle('hidden');
+    }
+
+    // Export Baseline Spec JSON
+    function downloadBaselineDoc() {
+      const baselineSpec = {
+        app: "Magic AI",
+        version: "1.0.0",
+        baseline_locked: true,
+        milestone_1: {
+          focus: "Phases 0 to 3",
+          status: "Ready",
+          components: ["Repository", "Next.js App", "Firebase Auth & Multi-Tenancy", "Firestore Repos & Security Rules"]
+        },
+        security_pipeline: [
+          "Browser", "Firebase Auth", "ID Token Verification",
+          "Org Membership", "RBAC", "Schema Validation",
+          "Rate Limit", "Authorized Operation", "Provider / MCP"
+        ],
+        architectural_refinements: {
+          mcp_isolation: "MCP Read-only server is kept separate from internal AI gateway to prevent security perimeter collapse",
+          rollback_strategy: "Backward-compatible schema migrations with immutable releases"
+        },
+        phases_total: 13,
+        definition_of_done: {
+          frontend_items: frontendDoD.length,
+          backend_items: backendDoD.length
+        }
+      };
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(baselineSpec, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", "magic-ai-v1.0-architecture-baseline.json");
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+  </script>
+</body>
+</html>
